@@ -9,7 +9,7 @@ from pygments.lexers import get_lexer_for_filename, get_lexer_by_name
 from pygments.formatters import NullFormatter
 from pygments.util import ClassNotFound
 
-from ..utils import Document, TextSplitter, CodeTextSplitter
+from ..utils import Document, TextSplitter, CodeTextSplitter, EnhancedASTChunker, CodeChunk
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 class CodeProcessor:
     """Processes code files for indexing."""
     
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, use_ast_chunking: bool = True):
         """Initialize the code processor."""
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.use_ast_chunking = use_ast_chunking
         
         # Language mapping
         self.language_map = {
@@ -64,17 +65,102 @@ class CodeProcessor:
             # Extract metadata
             metadata = self._extract_metadata(file_path, content, language)
             
-            # Create text splitter for the language
+            # Use enhanced AST chunking for Python files if enabled
+            if self.use_ast_chunking and language == 'python':
+                documents = await self._process_python_with_ast(file_path, content, metadata)
+            else:
+                # Create text splitter for the language
+                splitter = CodeTextSplitter(
+                    chunk_size=self.chunk_size,
+                    chunk_overlap=self.chunk_overlap,
+                    language=language
+                )
+                
+                # Split into chunks
+                chunks = splitter.split_text(content)
+                
+                # Create documents
+                documents = []
+                for i, chunk in enumerate(chunks):
+                    doc_metadata = {
+                        **metadata,
+                        'chunk_index': i,
+                        'total_chunks': len(chunks),
+                        'chunk_size': len(chunk)
+                    }
+                    
+                    doc = Document.from_code(
+                        file_path=str(file_path),
+                        content=chunk,
+                        language=language,
+                        **doc_metadata
+                    )
+                    documents.append(doc)
+            
+            logger.info(f"Created {len(documents)} documents from {file_path}")
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Error processing file {file_path}: {e}")
+            return []
+    
+    async def _process_python_with_ast(self, file_path: Path, content: str, metadata: Dict[str, Any]) -> List[Document]:
+        """Process Python file using AST-based chunking."""
+        try:
+            # Create AST chunker
+            ast_chunker = EnhancedASTChunker(
+                max_chunk_size=self.chunk_size,
+                min_chunk_size=self.chunk_size // 4,
+                preserve_context=True,
+                include_imports=True
+            )
+            
+            # Get AST-based chunks
+            code_chunks = ast_chunker.chunk_python_code(content)
+            
+            # Create documents from chunks
+            documents = []
+            for i, chunk in enumerate(code_chunks):
+                doc_metadata = {
+                    **metadata,
+                    'chunk_index': i,
+                    'total_chunks': len(code_chunks),
+                    'chunk_size': len(chunk.content),
+                    'chunk_type': chunk.chunk_type.value,
+                    'chunk_name': chunk.name,
+                    'start_line': chunk.start_line,
+                    'end_line': chunk.end_line,
+                    'complexity': chunk.complexity,
+                    'parameters': chunk.parameters,
+                    'decorators': chunk.decorators,
+                    'dependencies': chunk.dependencies
+                }
+                
+                # Add docstring if available
+                if chunk.docstring:
+                    doc_metadata['docstring'] = chunk.docstring
+                
+                doc = Document.from_code(
+                    file_path=str(file_path),
+                    content=chunk.content,
+                    language='python',
+                    **doc_metadata
+                )
+                documents.append(doc)
+            
+            logger.info(f"Created {len(documents)} AST-based documents from {file_path}")
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Error in AST processing for {file_path}: {e}")
+            # Fall back to regular text splitting
             splitter = CodeTextSplitter(
                 chunk_size=self.chunk_size,
                 chunk_overlap=self.chunk_overlap,
-                language=language
+                language='python'
             )
             
-            # Split into chunks
             chunks = splitter.split_text(content)
-            
-            # Create documents
             documents = []
             for i, chunk in enumerate(chunks):
                 doc_metadata = {
@@ -87,17 +173,12 @@ class CodeProcessor:
                 doc = Document.from_code(
                     file_path=str(file_path),
                     content=chunk,
-                    language=language,
+                    language='python',
                     **doc_metadata
                 )
                 documents.append(doc)
             
-            logger.info(f"Created {len(documents)} documents from {file_path}")
             return documents
-            
-        except Exception as e:
-            logger.error(f"Error processing file {file_path}: {e}")
-            return []
     
     def _detect_language(self, file_path: Path) -> str:
         """Detect the programming language of a file."""

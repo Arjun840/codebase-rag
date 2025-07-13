@@ -11,6 +11,8 @@ chromadb>=0.4.0
 # Web Framework
 streamlit>=1.25.0
 gradio>=3.40.0
+aiohttp>=3.8.0
+beautifulsoup4>=4.12.0
 
 # Data Processing
 pandas>=2.0.0
