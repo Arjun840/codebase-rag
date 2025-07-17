@@ -1,23 +1,17 @@
-"""Streamlit web application for the RAG system."""
+"""Streamlit web interface for the RAG system."""
 
 import streamlit as st
 import asyncio
-import sys
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 import logging
-import traceback
+from pathlib import Path
+from typing import List, Dict, Any
 
-# Add the project root to Python path
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+from ..config import config
+from ..core.rag_system import RAGSystem
+from ..utils.logging_utils import setup_logging
 
-from codebase_rag.core import RAGSystem
-from codebase_rag.config import config
-from codebase_rag.utils.logging_utils import setup_logging
-
-# Setup logging
-setup_logging(level="INFO", use_loguru=True)
+# Set up logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -27,28 +21,19 @@ class StreamlitApp:
     def __init__(self):
         """Initialize the Streamlit app."""
         self.rag_system = None
-        self.setup_page_config()
+        self.setup_page()
     
-    def setup_page_config(self):
-        """Configure the Streamlit page."""
+    def setup_page(self):
+        """Set up the Streamlit page configuration."""
         st.set_page_config(
-            page_title="Codebase RAG Assistant",
+            page_title="Codebase RAG System",
             page_icon="🔍",
             layout="wide",
             initial_sidebar_state="expanded"
         )
-    
-    def run(self):
-        """Run the Streamlit application."""
-        self.render_header()
-        self.render_sidebar()
-        self.render_main_content()
-    
-    def render_header(self):
-        """Render the application header."""
-        st.title("🔍 Codebase RAG Assistant")
-        st.markdown("Ask questions about your codebase using natural language!")
-        st.markdown("---")
+        
+        st.title("🔍 Codebase RAG System")
+        st.markdown("**Ask questions about your codebase using natural language**")
     
     def render_sidebar(self):
         """Render the sidebar with configuration options."""
@@ -71,12 +56,45 @@ class StreamlitApp:
             index=0 if config.vector_db_type == "chromadb" else 1
         )
         
-        # Embedding model selection
-        embedding_model = st.sidebar.selectbox(
-            "Embedding Model",
-            ["all-MiniLM-L6-v2", "all-mpnet-base-v2", "sentence-transformers/all-MiniLM-L12-v2"],
-            index=0
+        # Embedding model selection with descriptions
+        st.sidebar.markdown("**Embedding Model:**")
+        
+        # Model descriptions
+        model_descriptions = {
+            "flax-sentence-embeddings/st-codesearch-distilroberta-base": "🏆 CodeSearch DistilRoBERTa (768d) - Trained on CodeSearchNet for code search",
+            "microsoft/codebert-base": "🔧 CodeBERT (768d) - Pre-trained on code & documentation",
+            "microsoft/graphcodebert-base": "📊 GraphCodeBERT (768d) - Considers code structure and data flow",
+            "huggingface/CodeBERTa-small-v1": "⚡ CodeBERTa (768d) - Lightweight code model",
+            "sentence-transformers/all-MiniLM-L6-v2": "🔄 MiniLM (384d) - General purpose, fast",
+            "sentence-transformers/all-mpnet-base-v2": "🎯 MPNet (768d) - General purpose, high quality",
+            "sentence-transformers/all-distilroberta-v1": "🚀 DistilRoBERTa (768d) - General purpose, balanced"
+        }
+        
+        # Find current model index
+        current_model_index = 0
+        if hasattr(config, 'embedding_model') and config.embedding_model in config.code_embedding_models:
+            current_model_index = config.code_embedding_models.index(config.embedding_model)
+        
+        # Create selectbox options with descriptions
+        model_options = [model_descriptions.get(model, model) for model in config.code_embedding_models]
+        
+        selected_model_desc = st.sidebar.selectbox(
+            "Choose embedding model:",
+            model_options,
+            index=current_model_index,
+            help="Code-aware models are recommended for better code understanding"
         )
+        
+        # Get the actual model name from the description
+        embedding_model = config.code_embedding_models[model_options.index(selected_model_desc)]
+        
+        # Show model info
+        if "codesearch" in embedding_model.lower():
+            st.sidebar.info("💡 Recommended: This model is specifically trained for code search tasks")
+        elif "codebert" in embedding_model.lower():
+            st.sidebar.info("🔧 Code-aware: This model understands both code and documentation")
+        elif "graphcodebert" in embedding_model.lower():
+            st.sidebar.info("📊 Advanced: This model considers code structure and data flow")
         
         # Generation model selection
         generation_model = st.sidebar.selectbox(
@@ -103,61 +121,43 @@ class StreamlitApp:
         
         force_reindex = st.sidebar.checkbox("Force reindex", value=False)
         
-        if st.sidebar.button("Index Codebase"):
-            if codebase_path and self.rag_system:
-                self.index_codebase(codebase_path, force_reindex)
-            else:
-                st.sidebar.error("Please provide a codebase path and ensure RAG system is initialized")
+        if st.sidebar.button("Index Codebase") and codebase_path:
+            self.index_codebase(codebase_path, force_reindex)
         
-        # Store parameters in session state
-        st.session_state.update({
+        return {
             'db_type': db_type,
             'embedding_model': embedding_model,
             'generation_model': generation_model,
             'top_k': top_k,
             'threshold': threshold
-        })
+        }
     
-    def render_main_content(self):
+    def render_main_content(self, config_params):
         """Render the main content area."""
-        if self.rag_system is None:
-            st.warning("Please initialize the RAG system first using the sidebar.")
-            return
-        
         # Query input
         st.subheader("Ask a Question")
-        
-        # Query examples
-        with st.expander("Example Queries"):
-            st.markdown("""
-            - "How do I use the authentication system?"
-            - "What does this error mean: ImportError: No module named 'requests'?"
-            - "Show me examples of API endpoint definitions"
-            - "How to implement user registration?"
-            - "What is the database schema for users?"
-            """)
-        
-        # Query input
-        query = st.text_area(
-            "Enter your question:",
-            placeholder="How do I implement user authentication?",
-            height=100
-        )
         
         # Query type selection
         query_type = st.selectbox(
             "Query Type",
-            ["General", "Code Search", "Error Help", "Documentation"],
-            index=0
+            ["General", "Code Search", "Error Analysis", "Documentation"],
+            help="Select the type of query for better results"
+        )
+        
+        # Query input
+        query = st.text_area(
+            "Your Question:",
+            placeholder="e.g., 'How do I authenticate users?' or 'What does this error mean?'",
+            height=100
         )
         
         # Search button
         col1, col2 = st.columns([1, 4])
         with col1:
-            search_button = st.button("Search", type="primary")
+            search_button = st.button("🔍 Search", type="primary")
         with col2:
-            if st.button("Clear"):
-                st.experimental_rerun()
+            if st.button("🔄 Clear"):
+                st.rerun()
         
         # Execute search
         if search_button and query:
@@ -179,7 +179,7 @@ class StreamlitApp:
                 # Run async initialization
                 asyncio.run(self.rag_system.initialize())
                 
-                st.success("RAG system initialized successfully!")
+                st.success(f"RAG system initialized successfully with {embedding_model}!")
                 logger.info("RAG system initialized")
                 
         except Exception as e:
@@ -189,33 +189,21 @@ class StreamlitApp:
     
     def index_codebase(self, codebase_path: str, force_reindex: bool = False):
         """Index a codebase."""
+        if self.rag_system is None:
+            st.error("Please initialize the RAG system first")
+            return
+        
         try:
-            codebase_path = Path(codebase_path)
-            
-            if not codebase_path.exists():
+            path = Path(codebase_path)
+            if not path.exists():
                 st.error(f"Path does not exist: {codebase_path}")
                 return
             
-            if not codebase_path.is_dir():
-                st.error(f"Path is not a directory: {codebase_path}")
-                return
-            
-            with st.spinner("Indexing codebase..."):
-                # Create progress bar
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                # Update progress (this is a simple simulation)
-                for i in range(100):
-                    progress_bar.progress(i + 1)
-                    status_text.text(f"Indexing... {i + 1}%")
-                
+            with st.spinner(f"Indexing codebase: {codebase_path}"):
                 # Run async indexing
-                asyncio.run(self.rag_system.index_codebase(codebase_path, force_reindex))
+                asyncio.run(self.rag_system.index_codebase(path, force_reindex))
                 
-                progress_bar.progress(100)
-                status_text.text("Indexing complete!")
-                st.success(f"Successfully indexed codebase at {codebase_path}")
+                st.success(f"Successfully indexed: {codebase_path}")
                 logger.info(f"Indexed codebase: {codebase_path}")
                 
         except Exception as e:
@@ -225,73 +213,68 @@ class StreamlitApp:
     
     def execute_search(self, query: str, query_type: str):
         """Execute a search query."""
+        if self.rag_system is None:
+            st.error("Please initialize the RAG system first")
+            return
+        
         try:
-            # Get parameters from session state
-            top_k = st.session_state.get('top_k', 10)
-            threshold = st.session_state.get('threshold', 0.0)
+            # Enhance query based on type
+            enhanced_query = self.enhance_query(query, query_type)
             
-            # Execute search
-            result = asyncio.run(self.rag_system.ask(query, top_k))
+            # Run async search
+            results = asyncio.run(self.rag_system.search(enhanced_query))
+            
+            if not results:
+                st.warning("No results found. Try a different query or check if the codebase is indexed.")
+                return
             
             # Display results
-            self.display_search_results(result, query_type)
+            st.subheader(f"Search Results ({len(results)} found)")
             
+            for i, result in enumerate(results, 1):
+                with st.expander(f"Result {i} - {result.source} (Score: {result.score:.3f})"):
+                    st.code(result.content, language="python")
+                    
+                    # Show metadata
+                    if result.metadata:
+                        st.markdown("**Metadata:**")
+                        for key, value in result.metadata.items():
+                            st.text(f"{key}: {value}")
+            
+            # Generate answer
+            with st.spinner("Generating answer..."):
+                answer = asyncio.run(self.rag_system.generate_answer(enhanced_query, results))
+                
+                st.subheader("Generated Answer")
+                st.markdown(answer)
+                
         except Exception as e:
             st.error(f"Search failed: {str(e)}")
             logger.error(f"Search failed: {e}")
             st.exception(e)
     
-    def display_search_results(self, result: Dict[str, Any], query_type: str):
-        """Display search results."""
-        # Answer section
-        st.subheader("Answer")
-        
-        if result['answer']:
-            st.markdown(result['answer'])
+    def enhance_query(self, query: str, query_type: str) -> str:
+        """Enhance query based on type."""
+        if query_type == "Code Search":
+            return f"Find code that: {query}"
+        elif query_type == "Error Analysis":
+            return f"Analyze error: {query}"
+        elif query_type == "Documentation":
+            return f"Documentation about: {query}"
         else:
-            st.warning("No answer generated. Please try rephrasing your question.")
-        
-        # Metadata
-        st.subheader("Search Metadata")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric("Sources Found", result['metadata']['num_sources'])
-        
-        with col2:
-            st.metric("Top Similarity Score", f"{result['metadata']['top_score']:.4f}")
-        
-        # Sources section
-        st.subheader("Sources")
-        
-        if result['sources']:
-            for i, source in enumerate(result['sources']):
-                with st.expander(f"Source {i+1}: {source.source} (Score: {source.score:.4f})"):
-                    st.code(source.content, language=source.metadata.get('language', 'text'))
-                    
-                    # Show metadata
-                    st.markdown("**Metadata:**")
-                    metadata_cols = st.columns(2)
-                    
-                    with metadata_cols[0]:
-                        st.text(f"File: {source.metadata.get('file_name', 'Unknown')}")
-                        st.text(f"Type: {source.metadata.get('type', 'Unknown')}")
-                        st.text(f"Language: {source.metadata.get('language', 'Unknown')}")
-                    
-                    with metadata_cols[1]:
-                        st.text(f"Size: {source.metadata.get('chunk_size', 'Unknown')} chars")
-                        st.text(f"Chunk: {source.metadata.get('chunk_index', 'Unknown')}")
-                        st.text(f"Line count: {source.metadata.get('line_count', 'Unknown')}")
-        else:
-            st.warning("No sources found. The codebase might not be indexed yet.")
+            return query
     
-    def render_footer(self):
-        """Render the application footer."""
+    def run(self):
+        """Run the Streamlit app."""
+        # Render sidebar
+        config_params = self.render_sidebar()
+        
+        # Render main content
+        self.render_main_content(config_params)
+        
+        # Footer
         st.markdown("---")
-        st.markdown(
-            "Built with ❤️ using Streamlit and Sentence Transformers | "
-            "Powered by RAG (Retrieval-Augmented Generation)"
-        )
+        st.markdown("Built with ❤️ using Streamlit and RAG")
 
 
 def main():

@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 import re
 from datetime import datetime
 
-from ..utils import Document, RecursiveCharacterTextSplitter
+from ..utils import Document, RecursiveCharacterTextSplitter, SmartTextSplitter, MetadataExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +14,21 @@ logger = logging.getLogger(__name__)
 class ErrorProcessor:
     """Processes error logs and tracebacks for indexing."""
     
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, use_smart_chunking: bool = True):
         """Initialize the error processor."""
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.use_smart_chunking = use_smart_chunking
+        
+        # Initialize smart text splitter and metadata extractor
+        self.smart_splitter = SmartTextSplitter(
+            min_chunk_words=50,  # Shorter for error logs
+            max_chunk_words=200,
+            overlap_words=10,
+            preserve_structure=True
+        )
+        
+        self.metadata_extractor = MetadataExtractor()
         
         # Common error patterns
         self.error_patterns = {
@@ -41,39 +52,81 @@ class ErrorProcessor:
         logger.info(f"Processing error log from: {source}")
         
         try:
-            # Extract error metadata
-            metadata = self._extract_error_metadata(error_text)
-            metadata.update({
-                'source': source,
-                'type': 'error',
-                'processed_at': datetime.now().isoformat()
-            })
-            
-            # Create text splitter
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=self.chunk_size,
-                chunk_overlap=self.chunk_overlap
-            )
-            
-            # Split into chunks
-            chunks = splitter.split_text(error_text)
-            
-            # Create documents
-            documents = []
-            for i, chunk in enumerate(chunks):
-                doc_metadata = {
-                    **metadata,
-                    'chunk_index': i,
-                    'total_chunks': len(chunks),
-                    'chunk_size': len(chunk)
-                }
+            if self.use_smart_chunking:
+                # Use smart text splitter for issue-focused chunking
+                smart_chunks = self.smart_splitter.split_error_logs(error_text, source)
                 
-                doc = Document.from_text(
-                    content=chunk,
-                    source=source,
-                    **doc_metadata
+                # Create documents from smart chunks
+                documents = []
+                for i, chunk in enumerate(smart_chunks):
+                    # Extract comprehensive metadata
+                    metadata_context = self.metadata_extractor.extract_metadata(
+                        chunk.content, 
+                        source,
+                        chunk_info={
+                            'chunk_type': chunk.focus.value,
+                            'chunk_title': chunk.title,
+                            'chunk_index': i,
+                            'total_chunks': len(smart_chunks),
+                            'word_count': chunk.word_count,
+                            'error_type': 'log_entry'
+                        }
+                    )
+                    
+                    # Add error-specific metadata
+                    error_metadata = self._extract_error_metadata(chunk.content)
+                    metadata_context.custom.update(error_metadata)
+                    
+                    # Create context string for better LLM understanding
+                    context_string = self.metadata_extractor.create_context_string(metadata_context)
+                    
+                    # Convert metadata to dict and add context
+                    doc_metadata = metadata_context.to_dict()
+                    doc_metadata['context'] = context_string
+                    doc_metadata['source'] = source
+                    doc_metadata['type'] = 'error'
+                    doc_metadata['processed_at'] = datetime.now().isoformat()
+                    
+                    doc = Document.from_text(
+                        content=chunk.content,
+                        source=source,
+                        **doc_metadata
+                    )
+                    documents.append(doc)
+            else:
+                # Fallback to regular text splitting
+                metadata = self._extract_error_metadata(error_text)
+                metadata.update({
+                    'source': source,
+                    'type': 'error',
+                    'processed_at': datetime.now().isoformat()
+                })
+                
+                # Create text splitter
+                splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=self.chunk_size,
+                    chunk_overlap=self.chunk_overlap
                 )
-                documents.append(doc)
+                
+                # Split into chunks
+                chunks = splitter.split_text(error_text)
+                
+                # Create documents
+                documents = []
+                for i, chunk in enumerate(chunks):
+                    doc_metadata = {
+                        **metadata,
+                        'chunk_index': i,
+                        'total_chunks': len(chunks),
+                        'chunk_size': len(chunk)
+                    }
+                    
+                    doc = Document.from_text(
+                        content=chunk,
+                        source=source,
+                        **doc_metadata
+                    )
+                    documents.append(doc)
             
             logger.info(f"Created {len(documents)} documents from error log")
             return documents

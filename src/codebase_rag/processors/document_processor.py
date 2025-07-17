@@ -7,7 +7,7 @@ import json
 import yaml
 from xml.etree import ElementTree as ET
 
-from ..utils import Document, TextSplitter, MarkdownTextSplitter, RecursiveCharacterTextSplitter
+from ..utils import Document, TextSplitter, MarkdownTextSplitter, RecursiveCharacterTextSplitter, SmartTextSplitter, MetadataExtractor, MetadataContext
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +15,21 @@ logger = logging.getLogger(__name__)
 class DocumentProcessor:
     """Processes documentation files for indexing."""
     
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, use_smart_chunking: bool = True):
         """Initialize the document processor."""
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.use_smart_chunking = use_smart_chunking
+        
+        # Initialize smart text splitter and metadata extractor
+        self.smart_splitter = SmartTextSplitter(
+            min_chunk_words=100,
+            max_chunk_words=300,
+            overlap_words=20,
+            preserve_structure=True
+        )
+        
+        self.metadata_extractor = MetadataExtractor()
         
         # File type mapping
         self.processor_map = {
@@ -59,41 +70,79 @@ class DocumentProcessor:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
         
-        # Create markdown splitter
-        splitter = MarkdownTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap
-        )
-        
-        # Split into chunks
-        chunks = splitter.split_text(content)
-        
-        # Extract metadata
-        metadata = self._extract_markdown_metadata(content)
-        metadata.update({
-            'file_path': str(file_path),
-            'file_name': file_path.name,
-            'file_size': len(content),
-            'file_type': 'markdown',
-            'extension': file_path.suffix,
-        })
-        
-        # Create documents
-        documents = []
-        for i, chunk in enumerate(chunks):
-            doc_metadata = {
-                **metadata,
-                'chunk_index': i,
-                'total_chunks': len(chunks),
-                'chunk_size': len(chunk)
-            }
+        if self.use_smart_chunking:
+            # Use smart text splitter for better topic-focused chunking
+            smart_chunks = self.smart_splitter.split_markdown(content, str(file_path))
             
-            doc = Document.from_file(
-                file_path=str(file_path),
-                content=chunk,
-                **doc_metadata
+            # Create documents from smart chunks
+            documents = []
+            for i, chunk in enumerate(smart_chunks):
+                # Extract comprehensive metadata
+                metadata_context = self.metadata_extractor.extract_metadata(
+                    chunk.content, 
+                    str(file_path),
+                    chunk_info={
+                        'section_title': chunk.title,
+                        'section_path': chunk.section_path,
+                        'section_level': chunk.metadata.get('section_level', 0),
+                        'chunk_type': chunk.focus.value,
+                        'chunk_index': i,
+                        'total_chunks': len(smart_chunks),
+                        'word_count': chunk.word_count,
+                        'start_line': chunk.start_line,
+                        'end_line': chunk.end_line
+                    }
+                )
+                
+                # Create context string for better LLM understanding
+                context_string = self.metadata_extractor.create_context_string(metadata_context)
+                
+                # Convert metadata to dict and add context
+                doc_metadata = metadata_context.to_dict()
+                doc_metadata['context'] = context_string
+                
+                doc = Document.from_file(
+                    file_path=str(file_path),
+                    content=chunk.content,
+                    **doc_metadata
+                )
+                documents.append(doc)
+        else:
+            # Fallback to regular markdown splitter
+            splitter = MarkdownTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap
             )
-            documents.append(doc)
+            
+            # Split into chunks
+            chunks = splitter.split_text(content)
+            
+            # Extract basic metadata
+            metadata = self._extract_markdown_metadata(content)
+            metadata.update({
+                'file_path': str(file_path),
+                'file_name': file_path.name,
+                'file_size': len(content),
+                'file_type': 'markdown',
+                'extension': file_path.suffix,
+            })
+            
+            # Create documents
+            documents = []
+            for i, chunk in enumerate(chunks):
+                doc_metadata = {
+                    **metadata,
+                    'chunk_index': i,
+                    'total_chunks': len(chunks),
+                    'chunk_size': len(chunk)
+                }
+                
+                doc = Document.from_file(
+                    file_path=str(file_path),
+                    content=chunk,
+                    **doc_metadata
+                )
+                documents.append(doc)
         
         return documents
     

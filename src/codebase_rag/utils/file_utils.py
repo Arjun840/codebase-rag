@@ -320,3 +320,10 @@ class FileUtils:
             return backup_path
         
         return None 
+
+def get_file_size(path):
+    """Return the file size in bytes."""
+    return os.path.getsize(path)
+
+# Expose is_binary_file for direct import
+is_binary_file = FileUtils.is_binary_file 

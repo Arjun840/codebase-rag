@@ -15,7 +15,7 @@ class Config(BaseModel):
     
     # Model Configuration
     embedding_model: str = Field(
-        default=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
+        default=os.getenv("EMBEDDING_MODEL", "flax-sentence-embeddings/st-codesearch-distilroberta-base"),
         description="The embedding model to use"
     )
     generation_model: str = Field(
@@ -25,6 +25,20 @@ class Config(BaseModel):
     max_sequence_length: int = Field(
         default=int(os.getenv("MAX_SEQUENCE_LENGTH", "512")),
         description="Maximum sequence length for models"
+    )
+    
+    # Available Code-Aware Embedding Models
+    code_embedding_models: List[str] = Field(
+        default=[
+            "flax-sentence-embeddings/st-codesearch-distilroberta-base",  # CodeSearch DistilRoBERTa (768d)
+            "microsoft/codebert-base",  # CodeBERT (768d)
+            "microsoft/graphcodebert-base",  # GraphCodeBERT (768d)
+            "huggingface/CodeBERTa-small-v1",  # CodeBERTa (768d)
+            "sentence-transformers/all-MiniLM-L6-v2",  # General purpose (384d)
+            "sentence-transformers/all-mpnet-base-v2",  # General purpose (768d)
+            "sentence-transformers/all-distilroberta-v1",  # General purpose (768d)
+        ],
+        description="Available embedding models (code-aware and general purpose)"
     )
     
     # Vector Database Configuration
