@@ -1,0 +1,9 @@
+{
+  "model_name": "flax-sentence-embeddings/st-codesearch-distilroberta-base",
+  "embedding_dimension": 768,
+  "batch_size": 16,
+  "max_sequence_length": 512,
+  "normalize_embeddings": true,
+  "total_documents": 343641,
+  "created_at": 1752770411.639789
+}

@@ -206,10 +206,9 @@ class CodeProcessor:
     def _extract_metadata(self, file_path: Path, content: str, language: str) -> Dict[str, Any]:
         """Extract metadata from code file."""
         metadata = {
-            'file_path': str(file_path),
+            # 'language': language,  # Removed to avoid duplicate argument
             'file_name': file_path.name,
             'file_size': len(content),
-            'language': language,
             'extension': file_path.suffix,
             'line_count': content.count('\n') + 1,
         }

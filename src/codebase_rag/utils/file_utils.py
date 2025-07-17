@@ -154,7 +154,7 @@ class FileUtils:
         ]
         
         default_excludes = [
-            '*/node_modules/*', '*/.git/*', '*/venv/*',
+            '*/node_modules/*', '*/.git/*', '*/venv/*', '*/.venv/*', '*/site-packages/*',
             '*/__pycache__/*', '*/dist/*', '*/build/*',
             '*.pyc', '*.pyo', '*.pyd', '*.so', '*.dll',
             '*.class', '*.jar', '*.war', '*.ear'
@@ -175,7 +175,7 @@ class FileUtils:
         ]
         
         default_excludes = [
-            '*/node_modules/*', '*/.git/*', '*/venv/*',
+            '*/node_modules/*', '*/.git/*', '*/venv/*', '*/.venv/*', '*/site-packages/*',
             '*/__pycache__/*', '*/dist/*', '*/build/*'
         ]
         
