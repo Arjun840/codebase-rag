@@ -19,7 +19,7 @@ class Config(BaseModel):
         description="The embedding model to use"
     )
     generation_model: str = Field(
-        default=os.getenv("GENERATION_MODEL", "microsoft/DialoGPT-medium"),
+        default=os.getenv("GENERATION_MODEL", "codellama/CodeLlama-7b-hf"),
         description="The generation model to use"
     )
     max_sequence_length: int = Field(
@@ -39,6 +39,21 @@ class Config(BaseModel):
             "sentence-transformers/all-distilroberta-v1",  # General purpose (768d)
         ],
         description="Available embedding models (code-aware and general purpose)"
+    )
+    
+    # Available Code-Savvy Generation Models
+    code_generation_models: List[str] = Field(
+        default=[
+            "codellama/CodeLlama-7b-hf",  # Code Llama 7B (recommended for most systems)
+            "codellama/CodeLlama-13b-hf",  # Code Llama 13B (high-end systems)
+            "bigcode/starcoder2-7b",  # StarCoder2 7B (good code understanding)
+            "bigcode/starcoder2-15b",  # StarCoder2 15B (excellent, requires good GPU)
+            "microsoft/DialoGPT-medium",  # General conversational (current default)
+            "microsoft/DialoGPT-large",  # Larger conversational model
+            "openai/gpt-3.5-turbo",  # OpenAI API (excellent code understanding)
+            "openai/gpt-4",  # OpenAI API (best code understanding)
+        ],
+        description="Available generation models (code-aware and general purpose)"
     )
     
     # Vector Database Configuration
@@ -70,10 +85,6 @@ class Config(BaseModel):
     )
     
     # Web App Configuration
-    streamlit_port: int = Field(
-        default=int(os.getenv("STREAMLIT_PORT", "8501")),
-        description="Port for Streamlit app"
-    )
     debug: bool = Field(
         default=os.getenv("DEBUG", "false").lower() == "true",
         description="Enable debug mode"
@@ -95,7 +106,7 @@ class Config(BaseModel):
         description="Supported file extensions for processing"
     )
     ignore_patterns: List[str] = Field(
-        default=["*.pyc", "__pycache__", ".git", "node_modules", ".env", "*.log", "*.tmp"],
+        default=["*.pyc", "__pycache__", ".git", "node_modules", ".env", "*.log", "*.tmp", "venv", ".venv", "env", ".pytest_cache", ".coverage", "dist", "build", "*.egg-info"],
         description="Patterns to ignore during file processing"
     )
     

@@ -174,27 +174,6 @@ async def interactive_command(args):
         return 1
 
 
-def web_command(args):
-    """Handle the web command."""
-    try:
-        from .web.streamlit_app import main as streamlit_main
-        
-        # Set up Streamlit configuration
-        import streamlit as st
-        
-        # Run Streamlit app
-        streamlit_main()
-        
-    except ImportError:
-        logger = logging.getLogger(__name__)
-        logger.error("Streamlit not installed. Please install with: pip install streamlit")
-        return 1
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Web interface failed: {e}")
-        return 1
-
-
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -226,10 +205,6 @@ def main():
     interactive_parser.add_argument("--top-k", type=int, default=10, help="Number of results to return")
     interactive_parser.add_argument("--show-sources", action="store_true", help="Show source information")
     
-    # Web command
-    web_parser = subparsers.add_parser("web", help="Start web interface")
-    web_parser.add_argument("--port", type=int, default=8501, help="Port for web interface")
-    
     # Parse arguments
     args = parser.parse_args()
     
@@ -243,8 +218,6 @@ def main():
         return asyncio.run(search_command(args))
     elif args.command == "interactive":
         return asyncio.run(interactive_command(args))
-    elif args.command == "web":
-        return web_command(args)
     else:
         parser.print_help()
         return 1

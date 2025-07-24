@@ -23,7 +23,6 @@ setup(
         "torch>=2.0.0",
         "transformers>=4.30.0",
         "sentence-transformers>=2.2.0",
-        "streamlit>=1.25.0",
         "chromadb>=0.4.0",
         "faiss-cpu>=1.7.0",
         "pandas>=2.0.0",
@@ -58,7 +57,6 @@ setup(
     entry_points={
         "console_scripts": [
             "codebase-rag=codebase_rag.cli:main",
-            "codebase-rag-web=codebase_rag.web.streamlit_app:main",
         ],
     },
     classifiers=[

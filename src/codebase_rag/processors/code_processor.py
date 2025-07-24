@@ -89,6 +89,11 @@ class CodeProcessor:
                         'chunk_size': len(chunk)
                     }
                     
+                    # Final cleanup: convert any remaining lists to strings
+                    for key, value in doc_metadata.items():
+                        if isinstance(value, list):
+                            doc_metadata[key] = ', '.join(str(item) for item in value)
+                    
                     doc = Document.from_code(
                         file_path=str(file_path),
                         content=chunk,
@@ -131,14 +136,19 @@ class CodeProcessor:
                     'start_line': chunk.start_line,
                     'end_line': chunk.end_line,
                     'complexity': chunk.complexity,
-                    'parameters': chunk.parameters,
-                    'decorators': chunk.decorators,
-                    'dependencies': chunk.dependencies
+                    'parameters': ', '.join(chunk.parameters) if isinstance(chunk.parameters, list) else str(chunk.parameters),
+                    'decorators': ', '.join(chunk.decorators) if isinstance(chunk.decorators, list) else str(chunk.decorators),
+                    'dependencies': ', '.join(chunk.dependencies) if isinstance(chunk.dependencies, list) else str(chunk.dependencies)
                 }
                 
                 # Add docstring if available
                 if chunk.docstring:
                     doc_metadata['docstring'] = chunk.docstring
+                
+                # Final cleanup: convert any remaining lists to strings
+                for key, value in doc_metadata.items():
+                    if isinstance(value, list):
+                        doc_metadata[key] = ', '.join(str(item) for item in value)
                 
                 doc = Document.from_code(
                     file_path=str(file_path),
@@ -169,6 +179,11 @@ class CodeProcessor:
                     'total_chunks': len(chunks),
                     'chunk_size': len(chunk)
                 }
+                
+                # Final cleanup: convert any remaining lists to strings
+                for key, value in doc_metadata.items():
+                    if isinstance(value, list):
+                        doc_metadata[key] = ', '.join(str(item) for item in value)
                 
                 doc = Document.from_code(
                     file_path=str(file_path),
@@ -259,6 +274,11 @@ class CodeProcessor:
         except SyntaxError:
             logger.warning(f"Could not parse Python file for metadata extraction")
         
+        # Convert lists to strings for ChromaDB compatibility
+        for key, value in metadata.items():
+            if isinstance(value, list):
+                metadata[key] = ', '.join(str(item) if not isinstance(item, dict) else f"{item.get('name', str(item))}" for item in value)
+        
         return metadata
     
     def _extract_javascript_metadata(self, content: str) -> Dict[str, Any]:
@@ -288,6 +308,11 @@ class CodeProcessor:
         # Extract exports
         export_pattern = r'export\s+.*?(\w+)'
         metadata['exports'] = re.findall(export_pattern, content)
+        
+        # Convert lists to strings for ChromaDB compatibility
+        for key, value in metadata.items():
+            if isinstance(value, list):
+                metadata[key] = ', '.join(str(item) for item in value)
         
         return metadata
     
@@ -320,6 +345,11 @@ class CodeProcessor:
         # Extract method declarations
         method_pattern = r'(?:public|private|protected)?\s*(?:static)?\s*\w+\s+(\w+)\s*\('
         metadata['methods'] = re.findall(method_pattern, content)
+        
+        # Convert lists to strings for ChromaDB compatibility
+        for key, value in metadata.items():
+            if isinstance(value, list):
+                metadata[key] = ', '.join(str(item) for item in value)
         
         return metadata
     

@@ -216,7 +216,7 @@ class DocumentProcessor:
                 'file_size': len(content),
                 'file_type': 'json',
                 'extension': file_path.suffix,
-                'json_keys': list(data.keys()) if isinstance(data, dict) else [],
+                'json_keys': ', '.join(data.keys()) if isinstance(data, dict) else '',
                 'json_type': type(data).__name__
             }
             
@@ -270,7 +270,7 @@ class DocumentProcessor:
                 'file_size': len(content),
                 'file_type': 'yaml',
                 'extension': file_path.suffix,
-                'yaml_keys': list(data.keys()) if isinstance(data, dict) else [],
+                'yaml_keys': ', '.join(data.keys()) if isinstance(data, dict) else '',
                 'yaml_type': type(data).__name__
             }
             
@@ -325,7 +325,7 @@ class DocumentProcessor:
                 'file_type': 'xml',
                 'extension': file_path.suffix,
                 'root_tag': root.tag,
-                'xml_namespaces': list(root.nsmap.keys()) if hasattr(root, 'nsmap') else []
+                'xml_namespaces': ', '.join(root.nsmap.keys()) if hasattr(root, 'nsmap') else ''
             }
             
             # Create documents
@@ -375,7 +375,7 @@ class DocumentProcessor:
                 'file_type': 'html',
                 'extension': file_path.suffix,
                 'title': title,
-                'meta_tags': [tag.get('name', tag.get('property', '')) for tag in meta_tags]
+                'meta_tags': ', '.join(tag.get('name', tag.get('property', '')) for tag in meta_tags)
             }
             
         except ImportError:
@@ -503,6 +503,20 @@ class DocumentProcessor:
             code = match.group(2)
             metadata['code_blocks'].append({'language': language, 'code': code})
         
+        # Convert lists to strings for ChromaDB compatibility
+        for key, value in metadata.items():
+            if isinstance(value, list):
+                if key == 'headers':
+                    metadata[key] = ', '.join(f"H{item['level']}: {item['text']}" for item in value)
+                elif key == 'links':
+                    metadata[key] = ', '.join(f"{text} -> {url}" for text, url in value)
+                elif key == 'images':
+                    metadata[key] = ', '.join(f"{alt} ({url})" for alt, url in value)
+                elif key == 'code_blocks':
+                    metadata[key] = ', '.join(f"{item['language']}: {len(item['code'])} chars" for item in value)
+                else:
+                    metadata[key] = ', '.join(str(item) for item in value)
+        
         return metadata
     
     def _extract_css_metadata(self, content: str) -> Dict[str, Any]:
@@ -526,6 +540,11 @@ class DocumentProcessor:
         # Extract media queries
         media_pattern = r'@media\s+([^{]+)'
         metadata['media_queries'] = re.findall(media_pattern, content)
+        
+        # Convert lists to strings for ChromaDB compatibility
+        for key, value in metadata.items():
+            if isinstance(value, list):
+                metadata[key] = ', '.join(str(item) for item in value)
         
         return metadata
     

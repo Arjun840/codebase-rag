@@ -1,0 +1,67 @@
+Metadata-Version: 2.4
+Name: codebase-rag
+Version: 0.1.0
+Summary: A Retrieval-Augmented Generation system for codebase search and developer assistance
+Home-page: https://github.com/your-username/codebase-rag
+Author: Developer
+Author-email: developer@example.com
+Project-URL: Bug Reports, https://github.com/your-username/codebase-rag/issues
+Project-URL: Source, https://github.com/your-username/codebase-rag
+Project-URL: Documentation, https://github.com/your-username/codebase-rag/blob/main/README.md
+Keywords: rag retrieval-augmented-generation codebase search nlp ai machine-learning
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Documentation
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=2.0.0
+Requires-Dist: transformers>=4.30.0
+Requires-Dist: sentence-transformers>=2.2.0
+Requires-Dist: chromadb>=0.4.0
+Requires-Dist: faiss-cpu>=1.7.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: loguru>=0.7.0
+Requires-Dist: tqdm>=4.65.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: tiktoken>=0.4.0
+Requires-Dist: tree-sitter>=0.20.0
+Requires-Dist: pygments>=2.15.0
+Requires-Dist: python-magic>=0.4.27
+Requires-Dist: gitpython>=3.1.30
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: psutil>=5.9.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.4.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: accelerate>=0.20.0; extra == "all"
+Requires-Dist: gradio>=3.40.0; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Codebase RAG
