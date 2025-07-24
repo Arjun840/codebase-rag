@@ -1,62 +1,54 @@
-# DevLens RAG System (CLI Only)
+# RAG Tool for Codebase Help (CLI Only)
 
-## Overview
-This project provides a Retrieval-Augmented Generation (RAG) system for codebase analysis, now with a **command-line interface (CLI)** only. The web frontend has been removed for a streamlined, developer-focused experience.
-
----
-
-## Usage
-
-### 1. **Activate your virtual environment**
-```bash
-cd codebase-rag
-source ../.venv/bin/activate
-```
-
-### 2. **Index your codebase**
-```bash
-python3 -m codebase_rag.cli --index
-```
-
-### 3. **Ask questions via CLI**
-```bash
-python3 -m codebase_rag.cli --query "How do I use the index_codebase API?"
-
-python3 -m codebase_rag.cli --query "What does this code do?" --code "def add(a, b): return a + b"
-
-python3 -m codebase_rag.cli --query "What does function get_embedding do?"
-
-python3 -m codebase_rag.cli --query "What does ModuleNotFoundError: No module named 'foo' mean?"
-```
-
-### 4. **Supported Query Types**
-- API usage questions
-- Error message explanations
-- Code snippet inquiries
-- Function/variable lookups
-- General codebase questions
+A command-line tool for codebase search and code-aware Q&A using Retrieval-Augmented Generation (RAG).
 
 ---
 
-## Example
-```bash
-python3 -m codebase_rag.cli --query "How does the RAG system work?"
-```
+## Quick Start
+
+1. **Activate your virtual environment:**
+   ```bash
+   cd codebase-rag
+   source ../.venv/bin/activate
+   export PYTHONPATH=src
+   ```
+
+2. **Index your codebase:**
+   ```bash
+   python3 -m codebase_rag.cli index ./src
+   ```
+
+3. **Ask questions via CLI:**
+   ```bash
+   python3 -m codebase_rag.cli search "How do I use the index_codebase API?"
+   python3 -m codebase_rag.cli search "What does this code do? def add(a, b): return a + b"
+   python3 -m codebase_rag.cli search "What does function get_embedding do?"
+   python3 -m codebase_rag.cli search "What does ModuleNotFoundError: No module named 'foo' mean?"
+   ```
+
+4. **Interactive mode:**
+   ```bash
+   python3 -m codebase_rag.cli interactive
+   ```
+
+---
+
+## Features
+- Search and ask questions about your codebase from the terminal
+- Supports API usage, error explanations, code snippet analysis, and more
+- No web frontend, no browser required
 
 ---
 
 ## Troubleshooting
-- If you get cut-off answers, increase `max_new_tokens` or `max_sequence_length` in `src/codebase_rag/config.py`.
-- To check if the backend is healthy, run:
-  ```bash
-  curl http://localhost:8000/health
-  ```
-- For more advanced usage, see the CLI help:
+- If you see `ModuleNotFoundError: No module named 'codebase_rag'`, make sure you are in the `codebase-rag` directory and have set `export PYTHONPATH=src`.
+- For more options, run:
   ```bash
   python3 -m codebase_rag.cli --help
   ```
 
 ---
 
-## No Web Frontend
-All HTML and web assets have been removed. Use the CLI for all interactions.
+## Technical Description
+
+This project is a Python CLI tool for codebase analysis using Retrieval-Augmented Generation (RAG). It indexes your codebase, embeds code/documents, and allows you to query or chat with your codebase using natural language. The backend uses FastAPI and supports pluggable embedding and generation models. All web UI has been removed for a streamlined, developer-focused workflow.
